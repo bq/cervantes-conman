@@ -3617,6 +3617,8 @@ gboolean __connman_service_remove(struct connman_service *service)
 						CONNMAN_SERVICE_STATE_FAILURE)
 		return FALSE;
 
+	reply_pending(service, ECONNABORTED);
+
 	set_reconnect_state(service, FALSE);
 
 	__connman_service_disconnect(service);
