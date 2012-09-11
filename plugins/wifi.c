@@ -109,6 +109,7 @@ struct wifi_data {
 static GList *iface_list = NULL;
 
 static void start_autoscan(struct connman_device *device);
+static char *state2string(GSupplicantState state);
 
 static void handle_tethering(struct wifi_data *wifi)
 {
@@ -1003,6 +1004,8 @@ static void network_remove(struct connman_network *network)
 		return;
 
 	wifi->network = NULL;
+	DBG("bqLog: removing current network (%s). Wifi state was %s\n",
+	    connman_network_get_identifier(wifi->network), state2string(wifi->state));
 }
 
 static void connect_callback(int result, GSupplicantInterface *interface,
@@ -1015,10 +1018,13 @@ static void connect_callback(int result, GSupplicantInterface *interface,
 	if (result == -ENOKEY) {
 		connman_network_set_error(network,
 					CONNMAN_NETWORK_ERROR_INVALID_KEY);
+		DBG("bqLog: reporting error invalid key on connect for %s", connman_network_get_identifier(network));
 	} else if (result < 0) {
 		connman_network_set_error(network,
 					CONNMAN_NETWORK_ERROR_CONFIGURE_FAIL);
-	}
+		DBG("bqLog: reporting error configure fail on connect for %s", connman_network_get_identifier(network));
+	} else
+		DBG("bqLog: no error on connect for %s", connman_network_get_identifier(network));
 }
 
 static GSupplicantSecurity network_security(const char *security)
@@ -1111,6 +1117,7 @@ static int network_connect(struct connman_network *network)
 	GSupplicantSSID *ssid;
 
 	DBG("network %p", network);
+	DBG("bqLog: connect to: %s\n", connman_network_get_identifier(network));
 
 	if (device == NULL)
 		return -ENODEV;
@@ -1127,10 +1134,12 @@ static int network_connect(struct connman_network *network)
 
 	ssid_init(ssid, network);
 
-	if (wifi->disconnecting == TRUE)
+	if (wifi->disconnecting == TRUE) {
 		wifi->pending_network = network;
-	else {
+		DBG("bqLog: network %s in state disconnecting, so we dont try to connect, setting as PENDING", connman_network_get_identifier(network));
+	} else {
 		wifi->network = network;
+		DBG("bqLog: setting current network to %s", connman_network_get_identifier(network));
 		wifi->retries = 0;
 
 		return g_supplicant_interface_connect(interface, ssid,
@@ -1146,6 +1155,7 @@ static void disconnect_callback(int result, GSupplicantInterface *interface,
 	struct wifi_data *wifi = user_data;
 
 	if (wifi->network != NULL) {
+		DBG("bqLog: current network is %s\n", connman_network_get_identifier(network));
 		/*
 		 * if result < 0 supplican return an error because
 		 * the network is not current.
@@ -1153,8 +1163,10 @@ static void disconnect_callback(int result, GSupplicantInterface *interface,
 		 * failed, call connman_network_set_connected to report
 		 * disconnect is completed.
 		 */
-		if (result < 0)
+		if (result < 0) {
+			DBG("bqLog: result was < 0, setting disconnected");
 			connman_network_set_connected(wifi->network, FALSE);
+		}
 	}
 
 	wifi->network = NULL;
@@ -1162,6 +1174,7 @@ static void disconnect_callback(int result, GSupplicantInterface *interface,
 	wifi->disconnecting = FALSE;
 
 	if (wifi->pending_network != NULL) {
+		DBG("bqLog: we had a pending netwotk, so connecting to it: %s", connman_network_get_identifier(wifi->pending_network));
 		network_connect(wifi->pending_network);
 		wifi->pending_network = NULL;
 	}
@@ -1176,12 +1189,14 @@ static int network_disconnect(struct connman_network *network)
 	int err;
 
 	DBG("network %p", network);
+	DBG("bqLog: disconnect from: %s", connman_network_get_identifier(network));
 
 	wifi = connman_device_get_data(device);
 	if (wifi == NULL || wifi->interface == NULL)
 		return -ENODEV;
 
 	connman_network_set_associating(network, FALSE);
+	connman_network_set_connecting(network, FALSE);
 
 	if (wifi->disconnecting == TRUE)
 		return -EALREADY;
@@ -1330,6 +1345,8 @@ static connman_bool_t handle_4way_handshake_failure(GSupplicantInterface *interf
 					struct connman_network *network,
 					struct wifi_data *wifi)
 {
+
+	DBG("BqLog: state: %s, current retries: %d", state2string(wifi->state), wifi->retries);
 	if (wifi->state != G_SUPPLICANT_STATE_4WAY_HANDSHAKE)
 		return FALSE;
 
@@ -1343,6 +1360,33 @@ static connman_bool_t handle_4way_handshake_failure(GSupplicantInterface *interf
 	return FALSE;
 }
 
+static char *state2string(GSupplicantState state)
+{
+        if (state == G_SUPPLICANT_STATE_UNKNOWN)
+        	return "unknown";
+        if (state == G_SUPPLICANT_STATE_DISCONNECTED)
+        	return "disconnected";
+        if (state == G_SUPPLICANT_STATE_INACTIVE)
+        	return "inactive";
+        if (state == G_SUPPLICANT_STATE_SCANNING)
+        	return "scanning";
+        if (state == G_SUPPLICANT_STATE_AUTHENTICATING)
+        	return "authenticating";
+        if (state == G_SUPPLICANT_STATE_ASSOCIATING)
+        	return "associating";
+        if (state == G_SUPPLICANT_STATE_ASSOCIATED)
+        	return "associated";
+        if (state == G_SUPPLICANT_STATE_GROUP_HANDSHAKE)
+        	return "group_handshake";
+        if (state == G_SUPPLICANT_STATE_4WAY_HANDSHAKE)
+        	return "4way_handshake";
+        if (state == G_SUPPLICANT_STATE_COMPLETED)
+        	return "completed";
+
+        return "unknown";
+}
+
+
 static void interface_state(GSupplicantInterface *interface)
 {
 	struct connman_network *network;
@@ -1353,16 +1397,27 @@ static void interface_state(GSupplicantInterface *interface)
 
 	wifi = g_supplicant_interface_get_data(interface);
 
-	DBG("wifi %p interface state %d", wifi, state);
+	DBG("bqLog: wifi %p interface state %s", wifi, state2string(state));
 
-	if (wifi == NULL)
+	if (wifi == NULL) {
+		DBG("bqLog: no wifi object to update state! returning");
 		return;
+	}
 
 	network = wifi->network;
 	device = wifi->device;
 
-	if (device == NULL || network == NULL)
+	if (device == NULL) {
+		DBG("bqLog: no device object to update state! returning");
 		return;
+	}
+
+	if (network == NULL) {
+		DBG("bqLog: no network object to update state! returning");
+		return;
+	}
+
+
 
 	switch (state) {
 	case G_SUPPLICANT_STATE_SCANNING:
@@ -1372,8 +1427,10 @@ static void interface_state(GSupplicantInterface *interface)
 	case G_SUPPLICANT_STATE_ASSOCIATING:
 		stop_autoscan(device);
 
-		if (wifi->connected == FALSE)
+		if (wifi->connected == FALSE) {
+			DBG("bqLog: wifi not connected, setting as associating (network %s)", connman_network_get_identifier(network));
 			connman_network_set_associating(network, TRUE);
+		}
 
 		break;
 
@@ -1385,6 +1442,7 @@ static void interface_state(GSupplicantInterface *interface)
 									FALSE)
 			break;
 
+		DBG("bqLog: setting as connected (network %s)", connman_network_get_identifier(network));
 		connman_network_set_connected(network, TRUE);
 		break;
 
@@ -1400,22 +1458,28 @@ static void interface_state(GSupplicantInterface *interface)
 			if (is_idle_wps(interface, wifi) == TRUE)
 				break;
 
-		if (is_idle(wifi))
+		if (is_idle(wifi)) {
+			DBG("bqLog: wifi interface is idle, doing nothing (network %s)", connman_network_get_identifier(network));
 			break;
+		}
 
 		/* If previous state was 4way-handshake, then
 		 * it's either: psk was incorrect and thus we retry
 		 * or if we reach the maximum retries we declare the
 		 * psk as wrong */
 		if (handle_4way_handshake_failure(interface,
-						network, wifi) == TRUE)
+						network, wifi) == TRUE) {
+			DBG("bqLog: was a 4way failure, doing nothing (network %s)", connman_network_get_identifier(network));
 			break;
+		}
 
 		/* We disable the selected network, if not then
 		 * wpa_supplicant will loop retrying */
+		DBG("bqLog: disabling selected network %s at supplicant", connman_network_get_identifier(network));
 		if (g_supplicant_interface_enable_selected_network(interface,
-						FALSE) != 0)
+						FALSE) != 0) {
 			DBG("Could not disables selected network");
+		}
 
 		connman_network_set_connected(network, FALSE);
 		connman_network_set_associating(network, FALSE);
@@ -1426,6 +1490,7 @@ static void interface_state(GSupplicantInterface *interface)
 		break;
 
 	case G_SUPPLICANT_STATE_INACTIVE:
+		DBG("bqLog: inactive, cleaning asociation state of network %s", connman_network_get_identifier(network));
 		connman_network_set_associating(network, FALSE);
 		start_autoscan(device);
 
