@@ -3624,6 +3624,8 @@ gboolean __connman_service_remove(struct connman_service *service)
 	if (service->immutable == TRUE || service->hidden == TRUE)
 		return FALSE;
 
+	reply_pending(service, ECONNABORTED);
+
 	set_reconnect_state(service, FALSE);
 
 	__connman_service_disconnect(service);
