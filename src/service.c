@@ -1648,6 +1648,9 @@ static void append_proxy(DBusMessageIter *iter, void *user_data)
 
 	DBG("");
 
+	if (!service)
+		return;
+
 	if (is_connected(service) == FALSE)
 		return;
 
@@ -1699,6 +1702,10 @@ static void append_proxyconfig(DBusMessageIter *iter, void *user_data)
 	struct connman_service *service = user_data;
 	const char *method;
 
+	if (!service)
+		return;
+
+
 	if (service->proxy_config == CONNMAN_SERVICE_PROXY_METHOD_UNKNOWN)
 		return;
 
@@ -1734,6 +1741,10 @@ static void append_proxyconfig(DBusMessageIter *iter, void *user_data)
 static void append_provider(DBusMessageIter *iter, void *user_data)
 {
 	struct connman_service *service = user_data;
+
+	if (!service)
+		return;
+
 
 	DBG("%p %p", service, service->provider);
 
