@@ -5431,11 +5431,15 @@ int __connman_service_connect(struct connman_service *service)
 
 	DBG("service %p state %s", service, state2string(service->state));
 
-	if (is_connected(service) == TRUE)
+	if (is_connected(service) == TRUE) {
+		DBG("bqLog: Not connecting to service %p because is connected", service);
 		return -EISCONN;
+	}
 
-	if (is_connecting(service) == TRUE)
+	if (is_connecting(service) == TRUE) {
+		DBG("bqLog: Not connecting to service %p because is connecting", service);
 		return -EALREADY;
+	}
 
 	switch (service->type) {
 	case CONNMAN_SERVICE_TYPE_UNKNOWN:
