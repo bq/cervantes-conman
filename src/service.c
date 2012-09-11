@@ -795,8 +795,12 @@ static connman_bool_t is_connecting_state(struct connman_service *service,
 	case CONNMAN_SERVICE_STATE_UNKNOWN:
 	case CONNMAN_SERVICE_STATE_IDLE:
 	case CONNMAN_SERVICE_STATE_FAILURE:
-		if (service->network != NULL)
-			return connman_network_get_connecting(service->network);
+		if (service->network != NULL) {
+			enum connman_service_state network_state;
+			network_state = connman_network_get_connecting(service->network);
+			DBG("bqLog: service (%p) was idle or failure, checking network state: %s", service, state2string(network_state));
+			return network_state;
+		}
 	case CONNMAN_SERVICE_STATE_DISCONNECT:
 	case CONNMAN_SERVICE_STATE_READY:
 	case CONNMAN_SERVICE_STATE_ONLINE:
