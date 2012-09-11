@@ -1196,7 +1196,6 @@ static int network_disconnect(struct connman_network *network)
 		return -ENODEV;
 
 	connman_network_set_associating(network, FALSE);
-	connman_network_set_connecting(network, FALSE);
 
 	if (wifi->disconnecting == TRUE)
 		return -EALREADY;
