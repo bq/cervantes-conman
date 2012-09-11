@@ -1155,7 +1155,7 @@ static void disconnect_callback(int result, GSupplicantInterface *interface,
 	struct wifi_data *wifi = user_data;
 
 	if (wifi->network != NULL) {
-		DBG("bqLog: current network is %s\n", connman_network_get_identifier(network));
+		DBG("bqLog: current network is %s\n", connman_network_get_identifier(wifi->network));
 		/*
 		 * if result < 0 supplican return an error because
 		 * the network is not current.
