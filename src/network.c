@@ -1523,7 +1523,8 @@ int __connman_network_connect(struct connman_network *network)
 	if (network->connected == TRUE)
 		return -EISCONN;
 
-	if (network->connecting == TRUE || network->associating == TRUE)
+	if (network->connecting == TRUE || network->associating == TRUE) {
+		DBG("bqLog: already connecting or associating to this network (%s), doing nothing", connman_network_get_identifier(network));
 		return -EALREADY;
 
 	if (network->driver == NULL)
@@ -1541,9 +1542,11 @@ int __connman_network_connect(struct connman_network *network)
 
 	err = network->driver->connect(network);
 	if (err < 0) {
-		if (err == -EINPROGRESS)
+		if (err == -EINPROGRESS) {
+			DBG("bqLog: wifi connect returned in progress, setting as associating (%s)", connman_network_get_identifier(network));
 			connman_network_set_associating(network, TRUE);
-		else {
+		} else {
+			DBG("bqLog: wifi connect returned error, setting as not connecting (%s)", connman_network_get_identifier(network));
 			network->connecting = FALSE;
 		}
 
@@ -1580,8 +1583,12 @@ int __connman_network_disconnect(struct connman_network *network)
 	network->connecting = FALSE;
 
 	err = network->driver->disconnect(network);
-	if (err == 0)
+	if (err == 0) {
+		DBG("bqLog: driver disconnect was ok, calling set_disconnected (%s)", connman_network_get_identifier(network));
 		set_disconnected(network);
+	} else {
+		DBG("bqLog: driver disconnect FAILED, not calling set_disconnected (%s)", connman_network_get_identifier(network));
+	}
 
 	return err;
 }
