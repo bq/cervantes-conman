@@ -1526,6 +1526,7 @@ int __connman_network_connect(struct connman_network *network)
 	if (network->connecting == TRUE || network->associating == TRUE) {
 		DBG("bqLog: already connecting or associating to this network (%s), doing nothing", connman_network_get_identifier(network));
 		return -EALREADY;
+	}
 
 	if (network->driver == NULL)
 		return -EUNATCH;
