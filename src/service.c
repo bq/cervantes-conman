@@ -3613,10 +3613,6 @@ gboolean __connman_service_remove(struct connman_service *service)
 	if (service->immutable == TRUE || service->hidden == TRUE)
 		return FALSE;
 
-	if (service->favorite == FALSE && service->state !=
-						CONNMAN_SERVICE_STATE_FAILURE)
-		return FALSE;
-
 	set_reconnect_state(service, FALSE);
 
 	__connman_service_disconnect(service);
